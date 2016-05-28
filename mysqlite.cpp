@@ -1,7 +1,6 @@
 #include<iostream>
 #include<string>
 #include<sstream>
-#include<deque>
 #include<string.h>
 #include"./mysqlite.h"
 
@@ -415,6 +414,83 @@ string MySqlite::GetData(int rID, char* buffer) {
 	}
 }
 
+deque<int> MySqlite::GetWantData(char* buffer) {
+	sqlite3_stmt *stmt;
+	deque<int> id_array;
+	string query("SELECT * FROM ");
+	string str;
+	string str2;
+	string result;
+	int ret;
+	int cols;
+	int column;
+
+	str2 = buffer;
+
+	stringstream ss(str2);
+	ss >> str;
+
+	query += str;
+
+//cout << "QUERY : " << query << endl;
+
+	ret = sqlite3_prepare_v2(aDB, query.c_str(), -1, &stmt, NULL);
+
+	if(ret != SQLITE_OK) {
+		cout << str << " TABLE DATA NOT EXIST" << endl;
+		return id_array;
+	}
+
+	cols = sqlite3_column_count(stmt);
+
+	ss >> str;
+	ss >> str;
+
+	for(int col = 0; col < cols; col++) {
+		//cout << sqlite3_column_name(stmt, col) << " " << endl;
+		if(str.compare(string(((const char*)sqlite3_column_name(stmt, col)))) == 0){
+			column = col;
+			break;
+		}
+	}
+
+//cout << "STR : " << str << "  column : " << column << endl;
+
+	ss >> str;
+	ss >> str;
+
+//cout << "STR : " << str << endl;
+
+	while(sqlite3_step(stmt) == SQLITE_ROW){
+		switch (sqlite3_column_type(stmt, column)) {
+			case SQLITE_INTEGER:
+				result = to_string(sqlite3_column_int(stmt, column));
+
+				if(str.compare(result) == 0){
+					id_array.push_back(sqlite3_column_int(stmt, 0));
+				}
+
+				break;
+			case SQLITE_TEXT:
+				result = string(((const char*)sqlite3_column_text(stmt, column)));
+//cout << "result : " << result << endl;
+
+				if(str.compare(result) == 0){
+//cout << sqlite3_column_int(stmt, 0) << endl;
+					id_array.push_back(sqlite3_column_int(stmt, 0));
+				}
+
+				break;
+			case SQLITE_NULL:
+
+				break;
+		}
+	}
+
+	sqlite3_finalize(stmt);
+
+	return id_array;
+}
 
 void MySqlite::PrintTable(char* buffer) {
 	sqlite3_stmt *stmt;
@@ -423,6 +499,7 @@ void MySqlite::PrintTable(char* buffer) {
 	int ret = 0;
 	int cols;
 	string str2;
+
 	str2 = buffer;
 
 	stringstream ss(str2);

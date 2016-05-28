@@ -28,7 +28,7 @@ class Client
 		char *aIp;
 		bool isMember;
 
-		void aLogIn(void);
+		bool aLogIn(void);
 	
 		void aPrintMember(void);
 		void aPrintNoMember(void);
@@ -38,6 +38,7 @@ class Client
 		void aGetStoreMenuInfo(void);
 		void aGetStoreReview(void);
 		void aSetStoreReview(void);
+		void aRecommendStore(void);
 		void aResetPassword(void);
 };
 
@@ -102,12 +103,15 @@ void Client::WorkClient(void){
 
 	string str;
 
-	aLogIn();
+	if(!aLogIn()){
+		//aBuffer[0] = '!';
+		//send(aClient,aBuffer,aBufSize,0);
+		return;
+	}
 
 	if(isMember== true){ //member service
 		while(true){
 			aPrintMember();
-			
 			getline(cin,str);
 			
 			if(str == "1"){
@@ -132,9 +136,13 @@ void Client::WorkClient(void){
 
 			}else if(str == "6"){
 
-				aResetPassword();
+				aRecommendStore();
 
 			}else if(str == "7"){
+
+				aResetPassword();
+
+			}else if(str == "8"){
 
 				aBuffer[0] = '!';
 				send(aClient,aBuffer,aBufSize,0);
@@ -149,6 +157,7 @@ void Client::WorkClient(void){
 			aPrintNoMember();
 			
 			getline(cin,str);
+
 			if(str == "1"){
 
 				aShowAllStore();
@@ -189,7 +198,7 @@ void Client::EndClient(void){
 }
 
 
-void Client::aLogIn(void){
+bool Client::aLogIn(void){
 
 	string str;
 
@@ -213,7 +222,10 @@ void Client::aLogIn(void){
 		cout << "1. Member Log In"<< endl;
 		cout << "2. No member Log In"<< endl;
 		cout << "3. Register"<< endl;
+		cout << "4. Finish" << endl;
+
 		getline(cin,str);
+
 		if(str == "1"){
 			strcpy(aBuffer,"member");
 			send(aClient,aBuffer,aBufSize,0);
@@ -281,8 +293,16 @@ void Client::aLogIn(void){
 			
 			recv(aClient,aBuffer,aBufSize,0);
 			cout << aBuffer << endl;
+		}else{
+			strcpy(aBuffer,"finish");
+			send(aClient,aBuffer,aBufSize,0);
+			recv(aClient,aBuffer,aBufSize,0);
+			cout << aBuffer <<endl;
+
+			return false;
 		}
 	}
+	return true;
 }
 
 
@@ -293,9 +313,9 @@ void Client::aPrintMember(void){
 	cout<<"3. Get Store Menu Information"<<endl;
 	cout<<"4. Get Store Review"<<endl;
 	cout<<"5. Set Store Review"<<endl;
-	cout<<"6. Reset Password"<<endl;
-	cout<<"7. Log out"<<endl;
-
+	cout<<"6. Recommend Store"<<endl;
+	cout<<"7. Reset Password"<<endl;
+	cout<<"8. Log out"<<endl;
 }
 
 
@@ -305,7 +325,6 @@ void Client::aPrintNoMember(void){
 	cout<<"2. Get Store Table Information"<<endl;
 	cout<<"3. Get Store Menu Information"<<endl;
 	cout<<"4. Log out"<<endl;
-
 }
 
 
@@ -332,7 +351,7 @@ void Client::aShowAllStore(void){
 
 	while(1){
 		ss >> str;
-		if(str== "#"){
+		if(str== "#" || str == "*#"){
 			cout << endl;
 			break;
 		}else{
@@ -514,7 +533,14 @@ void Client::aGetStoreReview(void){
 			return;
 	}
 	ss >> temp; // *
-	
+	ss >> temp;	// point
+
+	cout << " - Point : " << temp << " -" << endl;
+
+	ss >> temp; // *
+	ss >> temp; // point cnt
+	ss >> temp; // *
+
 	while(ss>>temp){
 		if(temp[0] == '#'){
 			cout<< endl;
@@ -545,7 +571,12 @@ void Client::aSetStoreReview(void){
 	getline(cin,temp);
 	str = temp;
 	str += " * ";
-	
+
+	cout << "Store grade ?";
+	getline(cin,temp);
+	str += temp;
+	str += " * ";	
+
 	cout << "Your review (One Line)= ";
 	getline(cin,temp);
 	str += temp + " #";
@@ -561,12 +592,38 @@ void Client::aSetStoreReview(void){
 	getline(cin,str);
 }
 
+void Client::aRecommendStore(void){
+	string str;
+	string tok;
+
+	strcpy(aBuffer,"c6");
+	send(aClient,aBuffer,aBufSize,0);
+	recv(aClient,aBuffer,aBufSize,0);
+	cout << aBuffer << endl;
+
+	recv(aClient,aBuffer,aBufSize,0);
+
+	cout << endl;
+
+	str = aBuffer;
+	stringstream ss(str);
+
+	while(ss >> tok){
+		if(tok[0] != '*'){
+			cout << " - " << tok << endl;
+		}
+	}
+	//cout << aBuffer << endl;
+
+	cout <<"Press Enter to do anything..."<<endl;
+	getline(cin,str);
+}
 
 void Client::aResetPassword(void){
 	string str;
 	string str2;
 
-	strcpy(aBuffer,"c6");
+	strcpy(aBuffer,"c7");
 	send(aClient,aBuffer,aBufSize,0);
 	recv(aClient,aBuffer,aBufSize,0);
 	cout << aBuffer << endl;

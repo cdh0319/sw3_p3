@@ -18,7 +18,7 @@ class Manager
 	public:
 
 		void ChooseMode(int client);
-		void LogIn(int client, Manager& manager);
+		bool LogIn(int client, Manager& manager);
 		bool GetisClient(void) {return isClient;}
 		bool GetisMember(void) {return isMember;}
 		void SetaName(char* buffer);
@@ -57,7 +57,9 @@ class Server
 		void ClientGetStoreMenuInfo(int client, Manager manager);
 		void ClientGetStoreReview(int client, Manager manager);
 		void ClientSetStoreReview(int client, Manager manager);
+		void ClientRecommendStore(int client, Manager manager);
 		void ClientResetPassword(int client, Manager manager);
+
 	private:
 
 		pthread_t aThread;
@@ -184,7 +186,13 @@ void* ServerWork(void *arg){
 	send(*client,buffer,bufsize,0);
 
 	manager.ChooseMode(*client);
-	manager.LogIn(*client,manager);
+
+	if(!manager.LogIn(*client,manager)){
+		close(*client);
+		delete client;
+	
+		return NULL;
+	}
 
 	if(manager.GetisClient() == true){  //client	
 		if(manager.GetisMember() == true){ // member
@@ -229,6 +237,11 @@ void* ServerWork(void *arg){
 
 							break;
 						case '6':
+							
+							server.ClientRecommendStore(*client,manager);
+
+							break;
+						case '7':
 							
 							server.ClientResetPassword(*client,manager);
 
@@ -437,8 +450,8 @@ void Server::StartServer(void){
 	aClientInfo.CreateTable(2,buffer);
 
 	cout <<"ClientHistory Table confirming..."<<endl;
-	strcpy(buffer,"ClientHistory * identity text * history text #");
-	aClientInfo.CreateTable(2,buffer);
+	strcpy(buffer,"ClientHistory * identity text * Korean text * American text * Chinese text * Japanese text * Other text #");
+	aClientInfo.CreateTable(6,buffer);
 
 	cout <<"StoreAccountInfo Table confirming..."<<endl;
 	strcpy(buffer,"StoreAccountInfo * name text * password text #");
@@ -453,8 +466,8 @@ void Server::StartServer(void){
 	aStoreInfo.CreateTable(3,buffer);
 
 	cout <<"StoreReview Table confirming..."<<endl;
-	strcpy(buffer,"StoreReview * name text * review text #");
-	aStoreInfo.CreateTable(2,buffer);
+	strcpy(buffer,"StoreReview * name text * point text * cnt text * review text #");
+	aStoreInfo.CreateTable(4,buffer);
 
 }
 
@@ -511,7 +524,7 @@ void Manager::ChooseMode(int client){
 }
 
 
-void Manager::LogIn(int client, Manager &manager){
+bool Manager::LogIn(int client, Manager &manager){
 	int bufsize = 8192;
 	char buffer[bufsize];
 	string str;
@@ -546,13 +559,22 @@ void Manager::LogIn(int client, Manager &manager){
 					cout << "Client Register success!!"<<endl;
 					strcpy(buffer,"Register success!!");
 					send(client,buffer,bufsize,0);
+
+					//break;
 				}
+
+			}else if(str == "finish"){
+				strcpy(buffer,"Bye");
+				send(client,buffer,bufsize,0);
+				cout << "Client Go out!!"<<endl;
+
+				return false;
+				//break;
 
 			}else{
 				strcpy(buffer,"Invalid option!!");
 				send(client,buffer,bufsize,0);
 			}
-		
 		}
 	}else{
 		while(true){
@@ -574,9 +596,20 @@ void Manager::LogIn(int client, Manager &manager){
 					send(client,buffer,bufsize,0);
 
 				}
+			}else if(str == "finish"){
+				strcpy(buffer,"Bye");
+				send(client,buffer,bufsize,0);
+				cout << "Store Go out!!"<<endl;
+
+				return false;
+			}else{
+				strcpy(buffer,"Invalid option!!");
+				send(client,buffer,bufsize,0);
 			}
 		}
 	}
+
+	return true;
 }
 
 void Manager::SetaName(char* buffer){
@@ -660,7 +693,7 @@ bool Server::RegisterClient(int client){
 	aClientInfo.PrintTable(buffer);
 	cout << endl;
 
-	temStr = "ClientHistory * " + id + " * - #";
+	temStr = "ClientHistory * " + id + " * 0 * 0 * 0 * 0 * 0 #";
 	strcpy(buffer,&temStr[0]);
 	aClientInfo.UpsertData(buffer);
 	strcpy(buffer,"ClientHistory");
@@ -668,8 +701,6 @@ bool Server::RegisterClient(int client){
 	cout << endl;
 
 	pthread_mutex_unlock(&aClientInfo_lock);
-
-
 	pthread_mutex_unlock(&aClientAccount_lock);
 	
 	return true;
@@ -825,7 +856,7 @@ bool Server::RegisterStore(int client){
 		aStoreInfo.PrintTable(buffer);
 		cout  << endl;
 
-		para = "StoreReview * " + name + " * / #";
+		para = "StoreReview * " + name + " * 0 * 0 * / #";
 		strcpy(buffer,&para[0]);
 		aStoreInfo.UpsertData(buffer);
 		para = "StoreReview";
@@ -834,7 +865,6 @@ bool Server::RegisterStore(int client){
 		cout << endl;
 
 		pthread_mutex_unlock(&aStoreInfo_lock);
-
 
 
 		break;
@@ -1097,7 +1127,6 @@ void Server::StoreGetStoreReview(int client, Manager manager){
 		send(client,buffer,bufsize,0);
 	}
 
-
 }
 
 
@@ -1211,7 +1240,6 @@ void Server::StoreClearTableAndReset(int client, Manager manager){
 
 	pthread_mutex_unlock(&aStoreInfo_lock);
 
-
 }
 
 
@@ -1237,7 +1265,7 @@ void Server::StoreClearReview(int client, Manager manager){
 	strcpy(buffer,"StoreReview");
 	aStoreInfo.DeleteData(ret_int,buffer);
 
-	str = "StoreReview * " + manager.GetaName() + " * / #";
+	str = "StoreReview * " + manager.GetaName() + " * 0 * 0 * / #";
 	strcpy(buffer,&str[0]);
 	aStoreInfo.UpsertData(buffer);
 	strcpy(buffer,"StoreReview");
@@ -1377,7 +1405,6 @@ void Server::StoreFullTable(int client, Manager manager){
 
 	strcpy(buffer,"table full work!!");
 	send(client,buffer,bufsize,0);
-	
 
 }
 
@@ -1641,11 +1668,12 @@ void Server::ClientSetStoreReview(int client, Manager manager){
 
 	recv(client,buffer,bufsize,0);
 
-	int ret_int;	
+	int ret_int1, ret_int2;	
 	string store;
 	string str;
 	string str2;
 	string temp;
+	string head;
 
 	str2 = buffer;
 	stringstream ss(str2);
@@ -1657,19 +1685,47 @@ void Server::ClientSetStoreReview(int client, Manager manager){
 
 	pthread_mutex_lock(&aStoreInfo_lock);
 
-	ret_int = aStoreInfo.FindData(buffer);
+	ret_int1 = aStoreInfo.FindData(buffer);
 
 	pthread_mutex_unlock(&aStoreInfo_lock);
 
-	if(ret_int==-1){
+	str = "StoreGenre * name * " + store + " #";
+	strcpy(buffer,&str[0]);
+
+	pthread_mutex_lock(&aStoreGenre_lock);
+
+	ret_int2 = aStoreGenre.FindData(buffer);
+
+	pthread_mutex_unlock(&aStoreGenre_lock);
+
+	if(ret_int1==-1 || ret_int2==-1){
 		strcpy(buffer,"Store does not exist!!");
 		send(client,buffer,bufsize,0);
 	}else{
-		
-		temp ="StoreReview * "+ store + " * ";
-		temp += "/ " + manager.GetaName() + " ";
+		int point;
+		int total_cnt;
+		int temp_point;
+
+		string sGenre;
+	
+		strcpy(buffer, "StoreGenre");
+
+		pthread_mutex_lock(&aStoreGenre_lock);
+
+		sGenre = aStoreGenre.GetData(ret_int2, buffer);
+
+		pthread_mutex_unlock(&aStoreGenre_lock);
+
+		head = "StoreReview * "+ store + " * ";
+		ss >> store; // *
+		ss >> store; // point
+
+		temp_point = stoi(store);
 
 		ss >> store; // *
+
+		temp = "/ " + manager.GetaName() + " ";
+
 		while(ss >> store){
 			if(store == "#"){
 				break;
@@ -1681,27 +1737,310 @@ void Server::ClientSetStoreReview(int client, Manager manager){
 		strcpy(buffer,"StoreReview");
 		pthread_mutex_lock(&aStoreInfo_lock);
 
-		str = aStoreInfo.GetData(ret_int,buffer);
-		aStoreInfo.DeleteData(ret_int,buffer);
+		str = aStoreInfo.GetData(ret_int1,buffer);
+		aStoreInfo.DeleteData(ret_int1,buffer);
 
 		ss.clear();
 		ss.str(str);
 		ss >> store; // name
-		ss >> store; //*
+		ss >> store; // *
+		ss >> store; // point
+
+		point = stoi(store);
+
+		ss >> store; // *
+		ss >> store; // cnt
+
+		total_cnt = stoi(store);
+
+		point *= total_cnt;
+		total_cnt++;
+		point += temp_point;
+		point /= total_cnt;
+
+		head += to_string(point) + " * " + to_string(total_cnt) + " * ";
+
+		ss >> store; // *
 
 		while(ss >>store){
 			temp += store+ " ";
 		}
 
-		strcpy(buffer,&temp[0]);
+		head += temp;
+
+		strcpy(buffer,&head[0]);
 		aStoreInfo.UpsertData(buffer);
 
 		pthread_mutex_unlock(&aStoreInfo_lock);
 	
-
 		strcpy(buffer,"upload review...");
 		send(client,buffer,bufsize,0);
+
+		str = "ClientHistory * identity * " + manager.GetaName() + " #";
+		strcpy(buffer,&str[0]);
+
+		pthread_mutex_lock(&aClientInfo_lock);
+
+		ret_int1 = aClientInfo.FindData(buffer);
+
+		if(ret_int1 != -1){
+			string cHistory;
+			string genre;
+			int Kor;
+			int Ame;
+			int Chi;
+			int Jap;
+			int Oth;
+
+			strcpy(buffer,"ClientHistory");
+
+			cHistory = aClientInfo.GetData(ret_int1, buffer);
+
+			aClientInfo.DeleteData(ret_int1, buffer);
+
+			ss.clear();
+			ss.str(cHistory);
+			ss >> temp;
+			ss >> temp;
+			ss >> temp;
+			Kor = stoi(temp);
+			ss >> temp;
+			ss >> temp;
+			Ame = stoi(temp);
+			ss >> temp;
+			ss >> temp;
+			Chi = stoi(temp);
+			ss >> temp;
+			ss >> temp;
+			Jap = stoi(temp);
+			ss >> temp;
+			ss >> temp;
+			Oth = stoi(temp);
+
+			ss.clear();
+			ss.str(sGenre);
+			ss >> genre;
+			ss >> genre;
+			ss >> genre;
+
+			if(genre == "Korean"){
+				Kor++;
+			}else if(genre == "American"){
+				Ame++;
+			}else if(genre == "Chinese"){
+				Chi++;
+			}else if(genre == "Japanese"){
+				Jap++;
+			}else if(genre == "other"){
+				Oth++;
+			}else{
+//cout << "Genre : " << genre << endl;
+			}
+
+			str = "ClientHistory * " + manager.GetaName() + " * " + to_string(Kor) + " * " + to_string(Ame) + " * " 
+						+ to_string(Chi) + " * " + to_string(Jap) + " * " + to_string(Oth) + " #";
+
+			strcpy(buffer,&str[0]);
+
+			aClientInfo.UpsertData(buffer);
+		}else{
+
+		}
+
+		pthread_mutex_unlock(&aClientInfo_lock);
 	}
+}
+
+void Server::ClientRecommendStore(int client, Manager manager){
+
+	int bufsize = 8192;
+	char buffer[bufsize];
+
+	cout << manager.GetaName() << " want Recommend Store " << endl;
+	strcpy(buffer,"Recommend Store");
+	send(client,buffer,bufsize,0);
+
+	int ret_int;
+	string str;
+
+	str = "ClientHistory * identity * " + manager.GetaName() + " #";
+	strcpy(buffer,&str[0]);
+
+	pthread_mutex_lock(&aClientInfo_lock);
+
+	ret_int = aClientInfo.FindData(buffer);
+
+	if(ret_int != -1){
+		string cHistory;
+		string temp;
+		int Kor;
+		int Ame;
+		int Chi;
+		int Jap;
+		int Oth;
+		int priority;
+		deque<int> id_set;
+		deque<string> name_set;
+		deque<int> point_set;
+
+		strcpy(buffer,"ClientHistory");
+
+		cHistory = aClientInfo.GetData(ret_int, buffer);
+
+		stringstream ss(cHistory);
+
+		ss >> temp;
+		ss >> temp;
+		ss >> temp;
+		Kor = stoi(temp);
+		ss >> temp;
+		ss >> temp;
+		Ame = stoi(temp);
+		ss >> temp;
+		ss >> temp;
+		Chi = stoi(temp);
+		ss >> temp;
+		ss >> temp;
+		Jap = stoi(temp);
+		ss >> temp;
+		ss >> temp;
+		Oth = stoi(temp);
+
+		if((Kor < Oth) && (Ame < Oth) && (Chi < Oth) && (Jap < Oth)){
+			priority = 4;
+		} else if((Kor < Jap) && (Ame < Jap) && (Chi < Jap)){
+			priority = 3;
+		} else if((Kor < Chi) && (Ame < Chi)){
+			priority = 2;
+		} else if(Kor < Ame) {
+			priority = 1;
+		} else{
+			priority = 0;
+		}
+
+		int genre_cnt = 0;
+
+		if(priority == 0) {
+			str = "StoreGenre * genre * Korean #";
+		} else if(priority == 1){
+			str = "StoreGenre * genre * American #";
+		} else if(priority == 2){
+			str = "StoreGenre * genre * Chinese #";
+		} else if(priority == 3){
+			str = "StoreGenre * genre * Japanese #";
+		} else if(priority == 4){
+			str = "StoreGenre * genre * other #";
+		} else{
+
+		}
+
+		strcpy(buffer,&str[0]);
+
+		pthread_mutex_lock(&aStoreGenre_lock);
+
+		id_set = aStoreGenre.GetWantData(buffer);
+
+		strcpy(buffer,"StoreGenre");
+
+		for(int i = 0; i < id_set.size(); i++){
+			str = aStoreGenre.GetData(id_set.at(i), buffer);
+
+			ss.clear();
+			ss.str(str);
+			ss >> temp;
+
+			name_set.push_back(temp);
+		}
+
+		pthread_mutex_unlock(&aStoreGenre_lock);
+
+		int total_size = name_set.size();
+
+		if(total_size <= 10){
+			str = " * ";
+
+			for(int i = 0; i < total_size; i++){
+				str += name_set.at(i) + " * ";
+			}
+
+			strcpy(buffer,&str[0]);
+			send(client,buffer,bufsize,0);
+		}else{
+			pthread_mutex_lock(&aStoreInfo_lock);
+
+			for(int i = 0; i < total_size; i++){
+				int point;
+
+				str = "StoreReview * name * " + name_set.at(i) + " #";
+				strcpy(buffer,&str[0]);
+
+				ret_int = aStoreInfo.FindData(buffer);
+
+				strcpy(buffer, "StoreReview");
+				str = aStoreInfo.GetData(ret_int, buffer);
+
+				ss.clear();
+				ss.str(str);
+				ss >> temp;
+				ss >> temp;
+				ss >> temp;
+
+				point = stoi(temp);
+
+				point_set.push_back(point);
+
+			}
+
+			pthread_mutex_unlock(&aStoreInfo_lock);
+
+			int loop_cnt = 0;
+			int max_point;
+			int index;
+			deque<string>::iterator name_index;
+			deque<int>::iterator point_index;
+			deque<string>::iterator name_fix;
+			deque<int>::iterator point_fix;
+
+			str = " * ";
+			while(loop_cnt != 10){
+				max_point = point_set.front();
+				total_size = name_set.size();
+				name_index = name_set.begin();
+				point_index = point_set.begin();
+				name_fix = name_index;
+				point_fix = point_index;
+				index = 0;
+
+				for(int i = 0; i < total_size; i++){
+					if(max_point < point_set.at(i)){
+						max_point = point_set.at(i);
+						name_fix = name_index;
+						point_fix = point_index;
+						index = i;
+					}
+
+					name_index++;
+					point_index++;
+				}
+
+				str += name_set.at(index) + " * ";
+				name_set.erase(name_fix);
+				point_set.erase(point_fix);
+
+				loop_cnt++;
+			}
+
+			strcpy(buffer,&str[0]);
+			send(client,buffer,bufsize,0);
+		}
+
+	}else{
+
+	}
+
+	pthread_mutex_unlock(&aClientInfo_lock);
+
+
 }
 
 void Server::ClientResetPassword(int client, Manager manager){

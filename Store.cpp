@@ -27,7 +27,7 @@ class Store
 		char *aBuffer;
 		char *aIp;
 
-		void aLogIn(void);
+		bool aLogIn(void);
 		void aPrintMenu(void);
 
 		void aGetStoreTableInfo(void);
@@ -103,7 +103,9 @@ void Store::WorkStore(void){
 
 	string str;
 
-	aLogIn();
+	if(!aLogIn()){
+		return;
+	}
 
 	while(true){
 		aPrintMenu();
@@ -177,7 +179,7 @@ void Store::EndStore(void){
 }
 
 
-void Store::aLogIn(void){
+bool Store::aLogIn(void){
 	
 	string str;
 
@@ -200,6 +202,8 @@ void Store::aLogIn(void){
 //		cout << "Storename * password #"<< endl;
 		cout << "1. Log in Store"<< endl;
 		cout << "2. Register Store"<< endl;
+		cout << "3. Finish"<< endl;
+
 		getline(cin,str);
 
 		if(str == "1"){
@@ -267,7 +271,7 @@ void Store::aLogIn(void){
 					}else if(temp == "2"){
 						str = "American";
 					}else if(temp == "3"){
-							str = "Chinese";
+						str = "Chinese";
 					}else if(temp == "4"){
 						str = "Japanese";
 					}else{
@@ -318,8 +322,16 @@ void Store::aLogIn(void){
 					}
 				}
 			}
-		}	
+		}else{
+			strcpy(aBuffer,"finish");
+			send(aClient,aBuffer,aBufSize,0);
+			recv(aClient,aBuffer,aBufSize,0);
+			cout << aBuffer <<endl;
+
+			return false;
+		}
 	}
+	return true;
 }
 
 
@@ -327,7 +339,7 @@ void Store::aPrintMenu(void){
 	
 	cout <<"-----------------------------------"<<endl;
 	cout <<"1  Get Store Table Information."<< endl;
-	cout <<"2  Get	Store Menu Information."<< endl;
+	cout <<"2  Get Store Menu Information."<< endl;
 	cout <<"3. Get Store Review."<<endl;
 	cout <<"4. Clear Menu and Reset."<<endl;
 	cout <<"5. Clear Table and Reset."<<endl;
@@ -458,7 +470,15 @@ void Store::aGetStoreReview(void){
 
 	ss >> temp; //name
 	ss >> temp; // *
-	
+	ss >> temp; // point
+
+	cout << endl;
+	cout << " - Point : " << stoi(temp) << " -"<< endl;
+
+	ss >> temp; // *
+	ss >> temp; // cnt
+	ss >> temp; // *
+
 	while(ss>>temp){
 		if(temp[0] == '#'){
 			cout<< endl;

@@ -2,6 +2,7 @@
 #define __MYSQLITE_H__
 
 #include<string>
+#include<deque>
 #include<sqlite3.h>
 
 using namespace std;
@@ -20,6 +21,7 @@ public:
 	bool DeleteData(int rID,char* buffer);
 	bool DeleteData();
 	string GetData(int rID,char* buffer);
+	deque<int> GetWantData(char* buffer);
 	void PrintTable(char* buffer);
 	void GetTable(char* buffer,char* dest);
 
